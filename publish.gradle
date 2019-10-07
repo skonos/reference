@@ -1,0 +1,104 @@
+if (!(hasProperty('bintrayPublishingEnabled') && property('bintrayPublishingEnabled'))) {
+    println "For publishing please use ./gradlew -I ../_info/publish-keys.gradle bintrayUpload"
+    ext {
+        bintrayRepo = "dummy"
+        bintrayUser = "dummy"
+        bintrayKey = "dummy value"
+    }
+}
+
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.+'
+    }
+}
+
+apply plugin: com.jfrog.bintray.gradle.BintrayPlugin
+apply plugin: 'maven-publish'
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+javadoc.failOnError = false
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+
+artifacts {
+    archives sourcesJar
+    archives javadocJar
+}
+
+def publicationName = "${project.name}"
+def ver = "${project.version}"
+
+def pomConfig = {
+    licenses {
+        license {
+            name "The Apache Software License, Version 2.0"
+            url "http://www.apache.org/licenses/LICENSE-2.0.txt"
+            distribution "repo"
+        }
+    }
+    developers {
+        developer {
+        }
+    }
+
+    scm {
+        url "https://github.com/skonos/${rootProject.name}"
+    }
+}
+
+publishing {
+    publications {
+        "$publicationName" (MavenPublication) {
+            from components.java
+            groupId project.group
+            artifactId project.name
+            version ver
+
+            artifact sourcesJar {
+                classifier "sources"
+            }
+
+            artifact javadocJar {
+                classifier "javadoc"
+            }
+
+            pom.withXml {
+                def root = asNode()
+                root.appendNode('description', "Project ${rootProject.name}")
+                root.appendNode('name', "${rootProject.name}")
+                root.appendNode('url', "https://github.com/skonos/${rootProject.name}")
+                root.children().last() + pomConfig
+            }
+        }
+    }
+}
+
+bintray {
+    user = project.property('bintrayUser')
+    key = project.property('bintrayKey')
+
+    publications = [publicationName]
+
+    pkg {
+        repo = project.property('bintrayRepo')
+        name = publicationName
+        userOrg = project.property('bintrayUser')
+        licenses = ['Apache-2.0']
+        vcsUrl = "https://github.com/skonos/${rootProject.name}.git"
+        version {
+            name = "$ver"
+            desc = "$ver"
+            released = new Date()
+        }
+    }
+}
